@@ -1,0 +1,53 @@
+% cut_th(2): spectral bandwidth (cyc/oct) on each side
+function StrfBank = StrfModFiltBankGaborAlpha1ns(ModBankParam,Fses,cut_th)
+if nargin<3
+    % cut_th = [#time constant, #total bandwidth]
+    cut_th = [7,4];
+end
+
+%Generate axis(input)
+TMAX = 1.5; % second
+XMAX = 4;
+
+dt = 1/Fses(1);
+tmax = TMAX;
+dX = 1/Fses(2);
+Xmax = XMAX;
+input.taxis = (0:dt:tmax)*1000;
+input.X = -Xmax:dX:Xmax;
+
+%Generate Modualtion filters
+[Ns,Nt] = size(ModBankParam.F);
+
+for i = 1:Nt
+    for j = 1:Ns
+        Beta = ModBankParam.F(j,i).Beta;
+        H = strfgaboralpha1modelns(Beta,input);
+        famp = Beta(5)*exp(1)*sqrt(sqrt(2)-1)/(4*sqrt(pi)*Beta(3)); %normalize frequency domain gain
+        H = H/famp;
+        
+        % truncate filter and axis
+        t_tau = 2*sqrt(sqrt(2)-1)/2/pi/Beta(3);
+        s_bw = Beta(5);
+        
+        tlim = cut_th(1)*t_tau;
+        slim = cut_th(2)*[-s_bw,s_bw];
+        tlim = tlim*1000; % second to msec as taxis
+        
+        axisx = [1,find(abs(input.taxis-tlim) == min(abs(input.taxis-tlim)))];
+        axisy = [find(abs(input.X-slim(1)) == min(abs(input.X-slim(1)))),...
+            find(abs(input.X-slim(2)) == min(abs(input.X-slim(2))))];
+        
+        temp_input.taxis = input.taxis(axisx(1):axisx(2));
+        temp_input.X = input.X(axisy(1):axisy(2));
+        H = H(axisy(1):axisy(2),axisx(1):axisx(2));
+        
+        %Save Filter
+        StrfBank.F(j,i).Beta = Beta;
+        StrfBank.F(j,i).input = temp_input;
+        StrfBank.F(j,i).H = H;
+        clear H;
+    end
+end
+
+end
